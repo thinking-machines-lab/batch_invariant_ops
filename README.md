@@ -1,10 +1,12 @@
 # Batch Invariant Ops
 
-A companion library release to https://thinkingmachines.ai/blog/defeating-nondeterminism-in-llm-inference/. This library contains some batch-invariant kernels as well as an example of achieving deterministic vLLM inference.
+A companion library to the post **“Defeating Nondeterminism in LLM Inference.”** It provides “batch-invariant” replacements for select PyTorch ops so a model’s output for a given element does **not** depend on the batch size it was computed with. This enables truly reproducible inference in settings where batch size varies (e.g., shared servers). [Blog post](https://thinkingmachines.ai/blog/defeating-nondeterminism-in-llm-inference/).
+
 
 ## Overview
 
-This library primarily leverages torch.Library to sub out existing PyTorch kernels with "batch-invariant" ones. This allows many existing PyTorch models to use the batch-invariant ops with low overhead and non-intrusive code changes.
+In typical inference stacks, outputs can change when batch size changes due to floating-point non-associativity and kernel implementation details. Even if per-run kernels are deterministic, *user-visible* results vary when batch composition changes. Batch-invariant kernels remove that dependency by ensuring each element’s result is independent of other elements in the batch.
+
 
 ## Installation
 
