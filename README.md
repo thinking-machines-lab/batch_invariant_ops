@@ -2,8 +2,7 @@
 
 A companion library to the post **“Defeating Nondeterminism in LLM Inference.”** It provides “batch-invariant” replacements for select PyTorch ops so a model’s output for a given element does **not** depend on the batch size it was computed with. This enables truly reproducible inference in settings where batch size varies (e.g., shared servers). [Blog post](https://thinkingmachines.ai/blog/defeating-nondeterminism-in-llm-inference/).
 
-
-## Overview
+## Why batch invariance?
 
 In typical inference stacks, outputs can change when batch size changes due to floating-point non-associativity and kernel implementation details. Even if per-run kernels are deterministic, *user-visible* results vary when batch composition changes. Batch-invariant kernels remove that dependency by ensuring each element’s result is independent of other elements in the batch.
 
@@ -11,7 +10,7 @@ In typical inference stacks, outputs can change when batch size changes due to f
 ## Installation
 
 ```bash
-pip install -e .
+pip install -e.
 ```
 
 ## Quick Start
