@@ -122,6 +122,29 @@ def matmul_kernel_persistent(
             c = accumulator.to(tl.float16)
         tl.store(c_ptrs, c, mask=c_mask)
 
+def get_compute_units():
+    """
+    Returns the number of streaming multiprocessors (SMs) or equivalent compute units
+    for the available accelerator. Assigns the value to NUM_SMS.
+    """
+    NUM_SMS = None
+    device_type = getattr(torch.accelerator.current_accelerator(), "type", "cpu")
+
+    # Use match/case for device-specific logic (Python 3.10+)
+    match device_type:
+        case "cuda":
+            device_properties = torch.cuda.get_device_properties(0)
+            NUM_SMS = device_properties.multi_processor_count
+        case "xpu":
+            device_properties = torch.xpu.get_device_properties(0)
+            NUM_SMS = device_properties.max_compute_units
+        case _:
+            print("No CUDA or XPU device available. Using CPU.")
+            # For CPU, you might want to use the number of CPU cores
+            NUM_SMS = torch.get_num_threads()
+
+    return NUM_SMS
+
 
 def matmul_persistent(a: torch.Tensor, b: torch.Tensor, bias: torch.Tensor | None = None):
     # Check constraints.
@@ -130,7 +153,9 @@ def matmul_persistent(a: torch.Tensor, b: torch.Tensor, bias: torch.Tensor | Non
     assert bias is None or bias.dim() == 1, (
         "Currently assuming bias is 1D, let Horace know if you run into this"
     )
-    NUM_SMS = torch.cuda.get_device_properties("cuda").multi_processor_count
+
+
+    NUM_SMS = get_compute_units()
     M, K = a.shape
     K, N = b.shape
     dtype = a.dtype
@@ -477,13 +502,13 @@ def enable_batch_invariant_mode():
     global _batch_invariant_MODE, _batch_invariant_LIB
     if _batch_invariant_MODE:
         return
-
+    dispatch_key = getattr(torch.accelerator.current_accelerator(), "type", "cpu").upper()
     _batch_invariant_MODE = True
     _batch_invariant_LIB = torch.library.Library("aten", "IMPL")
-    _batch_invariant_LIB.impl("aten::mm", mm_batch_invariant, "CUDA")
-    _batch_invariant_LIB.impl("aten::addmm", addmm_batch_invariant, "CUDA")
-    _batch_invariant_LIB.impl("aten::_log_softmax", _log_softmax_batch_invariant, "CUDA")
-    _batch_invariant_LIB.impl("aten::mean.dim", mean_batch_invariant, "CUDA")
+    _batch_invariant_LIB.impl("aten::mm", mm_batch_invariant, dispatch_key)
+    _batch_invariant_LIB.impl("aten::addmm", addmm_batch_invariant, dispatch_key )
+    _batch_invariant_LIB.impl("aten::_log_softmax", _log_softmax_batch_invariant, dispatch_key )
+    _batch_invariant_LIB.impl("aten::mean.dim", mean_batch_invariant, dispatch_key )
 
 
 def disable_batch_invariant_mode():
