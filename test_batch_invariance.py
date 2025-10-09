@@ -8,9 +8,18 @@ with set_batch_invariant_mode(True):
     pass
 
 def test_batch_invariance(dtype=torch.float32):
-    B, D = 2048, 4096
-    a = torch.linspace(-100, 100, B*D, dtype=dtype).reshape(B, D)
-    b = torch.linspace(-100, 100, D*D, dtype=dtype).reshape(D, D)
+    M = 32
+    K = 128
+    N = 1024
+    a = torch.linspace(-100, 100, M*K, dtype=dtype).reshape(M, K)
+
+    # Create non-contiguous tensor to mimic the nn.Linear case while weight is always transposed
+    # See ref: https://github.com/pytorch/pytorch/blob/v2.8.0/torch/nn/modules/linear.py#L50
+    b = torch.linspace(-100, 100, K*N, dtype=dtype).reshape(N, K)
+    b = b.transpose(0, 1)
+
+    print(f"a is contiguous: {a.is_contiguous()}")
+    print(f"b is contiguous: {b.is_contiguous()}")
 
     # Method 1: Matrix-vector multiplication (batch size 1)
     out1 = torch.mm(a[:1], b)
