@@ -481,10 +481,12 @@ def mean_batch_invariant(input, dim, keepdim=False, dtype: torch.dtype | None = 
         assert input.dtype in {torch.float16, torch.bfloat16, torch.float32}, (
             "only float types supported for now"
         )
+        if len(dim) == 0:
+            dim = list(range(input.ndim))
         n_elems = 1
         for d in dim:
             n_elems *= input.shape[d]
-        return torch.sum(input, dim=dim, keepdim=keepdim, dtype=torch.float32) / n_elems
+        return torch.sum(input, dim=dim, keepdim=keepdim, dtype=torch.float32).to(dtype or input.dtype) / n_elems
 
 
 _batch_invariant_MODE = False
