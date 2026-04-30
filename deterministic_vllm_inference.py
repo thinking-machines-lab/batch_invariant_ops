@@ -3,7 +3,9 @@
 # vllm serve Qwen/Qwen3-8B --enforce-eager
 
 import asyncio
+
 import httpx
+
 
 async def main():
     url = "http://localhost:8000/v1/chat/completions"
@@ -16,13 +18,10 @@ async def main():
         "messages": [
             {
                 "role": "user",
-                "content": "Generate 1000 random numbers. Go directly into it, don't say Sure and don't say here are numbers. Just start with a number. /no_think",
-                
+                "content": "Generate 1000 random numbers. Go directly into it, don't say Sure and don't say here are numbers. Just start with a number. /no_think",  # noqa: E501
             }
         ],
-        "chat_template_kwargs": {
-            "thinking": False
-        },
+        "chat_template_kwargs": {"thinking": False},
         "temperature": 0.0,
         "max_tokens": 100,
     }
@@ -37,10 +36,11 @@ async def main():
 
         responses = await asyncio.gather(*responses)
         for response in responses:
-            outs.append(response.json()['choices'][0]['message']['content'])
+            outs.append(response.json()["choices"][0]["message"]["content"])
 
     for i in outs:
         print(i.replace("\n", " "))
     print(f"Total samples: {len(outs)}, Unique samples: {len(set(outs))}")
+
 
 asyncio.run(main())
