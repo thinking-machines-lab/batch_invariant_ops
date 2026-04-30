@@ -7,7 +7,12 @@ import torch
 import triton
 import triton.language as tl
 
-__all__ = ["set_batch_invariant_mode", "is_batch_invariant_mode_enabled", "disable_batch_invariant_mode", "enable_batch_invariant_mode"]
+__all__ = [
+    "set_batch_invariant_mode",
+    "is_batch_invariant_mode_enabled",
+    "disable_batch_invariant_mode",
+    "enable_batch_invariant_mode",
+]
 
 
 def _matmul_launch_metadata(
@@ -119,6 +124,7 @@ def matmul_kernel_persistent(
         c = accumulator.to(c_ptr.dtype.element_ty)
         tl.store(c_ptrs, c, mask=c_mask)
 
+
 def get_compute_units():
     """
     Returns the number of streaming multiprocessors (SMs) or equivalent compute units
@@ -147,10 +153,9 @@ def matmul_persistent(a: torch.Tensor, b: torch.Tensor, bias: torch.Tensor | Non
     # Check constraints.
     assert a.shape[1] == b.shape[0], "Incompatible dimensions"
     assert a.dtype == b.dtype, "Incompatible dtypes"
-    assert bias is None or bias.dim() == 1, (
-        "Currently assuming bias is 1D, let Horace know if you run into this"
-    )
-
+    assert (
+        bias is None or bias.dim() == 1
+    ), "Currently assuming bias is 1D, let Horace know if you run into this"
 
     NUM_SMS = get_compute_units()
     M, K = a.shape
@@ -387,9 +392,9 @@ def mean_dim(
     """
     # Validate inputs
     assert input.is_cuda, "Input must be a CUDA tensor"
-    assert -input.ndim <= dim < input.ndim, (
-        f"Invalid dimension {dim} for tensor with {input.ndim} dimensions"
-    )
+    assert (
+        -input.ndim <= dim < input.ndim
+    ), f"Invalid dimension {dim} for tensor with {input.ndim} dimensions"
 
     # Handle negative dim
     if dim < 0:
@@ -478,15 +483,20 @@ def mean_batch_invariant(input, dim, keepdim=False, dtype: torch.dtype | None = 
     if len(dim) == 1:
         return mean_dim(input, dim[0], keepdim=keepdim)
     else:
-        assert input.dtype in {torch.float16, torch.bfloat16, torch.float32}, (
-            "only float types supported for now"
-        )
+        assert input.dtype in {
+            torch.float16,
+            torch.bfloat16,
+            torch.float32,
+        }, "only float types supported for now"
         if len(dim) == 0:
             dim = list(range(input.ndim))
         n_elems = 1
         for d in dim:
             n_elems *= input.shape[d]
-        return torch.sum(input, dim=dim, keepdim=keepdim, dtype=torch.float32).to(dtype or input.dtype) / n_elems
+        return (
+            torch.sum(input, dim=dim, keepdim=keepdim, dtype=torch.float32).to(dtype or input.dtype)
+            / n_elems
+        )
 
 
 _batch_invariant_MODE = False
@@ -505,9 +515,9 @@ def enable_batch_invariant_mode():
     _batch_invariant_MODE = True
     _batch_invariant_LIB = torch.library.Library("aten", "IMPL")
     _batch_invariant_LIB.impl("aten::mm", mm_batch_invariant, dispatch_key)
-    _batch_invariant_LIB.impl("aten::addmm", addmm_batch_invariant, dispatch_key )
-    _batch_invariant_LIB.impl("aten::_log_softmax", _log_softmax_batch_invariant, dispatch_key )
-    _batch_invariant_LIB.impl("aten::mean.dim", mean_batch_invariant, dispatch_key )
+    _batch_invariant_LIB.impl("aten::addmm", addmm_batch_invariant, dispatch_key)
+    _batch_invariant_LIB.impl("aten::_log_softmax", _log_softmax_batch_invariant, dispatch_key)
+    _batch_invariant_LIB.impl("aten::mean.dim", mean_batch_invariant, dispatch_key)
 
 
 def disable_batch_invariant_mode():

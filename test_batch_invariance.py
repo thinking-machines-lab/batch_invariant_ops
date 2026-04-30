@@ -1,5 +1,7 @@
 import torch
+
 from batch_invariant_ops import set_batch_invariant_mode
+
 device_type = getattr(torch.accelerator.current_accelerator(), "type", "cpu")
 torch.set_default_device(device_type)
 
@@ -7,10 +9,11 @@ torch.set_default_device(device_type)
 with set_batch_invariant_mode(True):
     pass
 
+
 def test_batch_invariance(dtype=torch.float32):
     B, D = 2048, 4096
-    a = torch.linspace(-100, 100, B*D, dtype=dtype).reshape(B, D)
-    b = torch.linspace(-100, 100, D*D, dtype=dtype).reshape(D, D)
+    a = torch.linspace(-100, 100, B * D, dtype=dtype).reshape(B, D)
+    b = torch.linspace(-100, 100, D * D, dtype=dtype).reshape(D, D)
 
     # Method 1: Matrix-vector multiplication (batch size 1)
     out1 = torch.mm(a[:1], b)
@@ -22,15 +25,21 @@ def test_batch_invariance(dtype=torch.float32):
     diff = (out1 - out2).abs().max()
     return diff.item() == 0, diff
 
+
 def run_iters(iters=10):
-    for dtype in [ torch.float32 , torch.bfloat16 ]:
+    for dtype in [torch.float32, torch.bfloat16]:
         is_deterministic = True
         difflist = []
-        for i in range (iters):
+        for i in range(iters):
             isd, df = test_batch_invariance(dtype)
             is_deterministic = is_deterministic and isd
             difflist.append(df)
-        print( f"Batch Deterministic: {is_deterministic} run-to-run max/min/diff {max(difflist)}/{min(difflist)}/{max(difflist)-min(difflist)} for {dtype} in {iters} iterations")
+        print(
+            f"Batch Deterministic: {is_deterministic} "
+            f"run-to-run max/min/diff "
+            f"{max(difflist)}/{min(difflist)}/{max(difflist)-min(difflist)} "
+            f"for {dtype} in {iters} iterations"
+        )
 
 
 # Test with standard PyTorch (likely to show differences)
