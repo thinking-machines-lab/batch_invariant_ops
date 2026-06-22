@@ -33,6 +33,29 @@ def run_iters(iters=10):
         print( f"Batch Deterministic: {is_deterministic} run-to-run max/min/diff {max(difflist)}/{min(difflist)}/{max(difflist)-min(difflist)} for {dtype} in {iters} iterations")
 
 
+def test_fp32_matmul_precision():
+    """fp32 matmul must keep IEEE precision, not silently fall back to TF32.
+
+    tl.dot defaults to TF32 for fp32 inputs (10-bit mantissa; integers exact only to
+    2**11 = 2048), whereas torch.mm uses IEEE fp32 by default. Without
+    input_precision="ieee" in matmul_kernel_persistent, every fp32 mm/addmm under
+    batch-invariant mode loses precision for values > 2048 -- e.g. it corrupts the
+    rotary-embedding phase (positions @ inv_freq) for long context. Returns the count
+    of mismatched elements against the exact integer reference (0 == correct).
+    """
+    pos  = torch.arange(8192, dtype=torch.float32)   # every value exact in fp32
+    ones = torch.ones(1, 1, dtype=torch.float32)
+    with set_batch_invariant_mode(True):
+        out = torch.mm(ones, pos[None, :])
+    mismatches = int((out[0] != pos).sum())
+    assert mismatches == 0, (
+        f"fp32 matmul lost precision: {mismatches} elements wrong, "
+        f"e.g. position 2049 -> {out[0, 2049].item()} (expected 2049.0). "
+        f"matmul_kernel_persistent is using TF32 for fp32 inputs."
+    )
+    return mismatches
+
+
 # Test with standard PyTorch (likely to show differences)
 print("Standard PyTorch:")
 with set_batch_invariant_mode(False):
@@ -41,3 +64,7 @@ with set_batch_invariant_mode(False):
 print("\nBatch-Invariant Mode:")
 with set_batch_invariant_mode(True):
     run_iters()
+
+# fp32 precision: matmul must not silently downgrade to TF32 (see issue #23)
+print("\nfp32 precision (TF32 regression):")
+print(f"  fp32 matmul mismatches vs IEEE reference: {test_fp32_matmul_precision()} (expected 0)")
