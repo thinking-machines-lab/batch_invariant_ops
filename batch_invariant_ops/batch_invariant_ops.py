@@ -101,7 +101,11 @@ def matmul_kernel_persistent(
 
             a = tl.load(a_ptrs, mask=offs_k_for_mask[None, :] < K - ki * BLOCK_SIZE_K, other=0.0)
             b = tl.load(b_ptrs, mask=offs_k_for_mask[:, None] < K - ki * BLOCK_SIZE_K, other=0.0)
-            accumulator = tl.dot(a, b, accumulator)
+            # input_precision="ieee": fp32 inputs must use full IEEE precision, not TF32.
+            # tl.dot defaults to TF32 for fp32 (10-bit mantissa; integers exact only to
+            # 2**11=2048), which silently downgrades fp32 matmuls vs torch.mm's default
+            # IEEE path. No-op for bf16/fp16 (TF32 only applies to fp32 inputs).
+            accumulator = tl.dot(a, b, accumulator, input_precision="ieee")
 
         tile_id_c += NUM_SMS
         pid_m, pid_n = _compute_pid(tile_id_c, num_pid_in_group, num_pid_m, GROUP_SIZE_M, NUM_SMS)
