@@ -8,6 +8,8 @@ This library primarily leverages torch.Library to sub out existing PyTorch kerne
 
 ## Installation
 
+Requires Python 3.10 or newer.
+
 ```bash
 pip install -e .
 ```
