@@ -76,9 +76,23 @@ with set_batch_invariant_mode(True):
 ### Matrix Operations
 - `torch.mm()` - Matrix multiplication
 - `torch.addmm()` - Matrix multiplication with bias addition
+- `torch.bmm()` - Batch matrix multiplication, including rank-3 attention
+  `torch.matmul()` calls that dispatch to `aten::bmm`
+
+### Convolution Operations
+- `torch.nn.functional.conv2d()` / `nn.Conv2d` - Regular (non-transposed) 2-D
+  convolution, implemented as an independent unfold-and-GEMM for each sample
 
 ### Activation Functions
 - `torch.log_softmax()` - Log-softmax activation
 
 ### Reduction Operations
 - `torch.mean()` - Mean computation along specified dimensions
+
+## Conv2d and attention BMM demonstration
+
+On CUDA, run `python scripts/check_conv2d_bmm_batch_invariance.py`.  It
+compares a sample evaluated alone with the same sample at the start of a larger
+batch for a 14x14 patch convolution and an attention-shaped rank-3 matmul.  It
+also profiles the latter to show why an `mm` override does not cover it:
+rank-3 `torch.matmul` dispatches `aten::bmm`.
