@@ -483,10 +483,16 @@ def mean_batch_invariant(input, dim, keepdim=False, dtype: torch.dtype | None = 
         )
         if len(dim) == 0:
             dim = list(range(input.ndim))
-        n_elems = 1
-        for d in dim:
-            n_elems *= input.shape[d]
-        return torch.sum(input, dim=dim, keepdim=keepdim, dtype=torch.float32).to(dtype or input.dtype) / n_elems
+        # One dim at a time through mean_dim, largest first so the remaining indices stay valid.
+        # torch.sum over several dims is the native reduction, whose split depends on the batch size.
+        dims = sorted({d % input.ndim for d in dim}, reverse=True)
+        result = input.to(torch.float32)
+        for d in dims:
+            result = mean_dim(result, d, keepdim=True)
+        if not keepdim:
+            for d in dims:
+                result = result.squeeze(d)
+        return result.to(dtype or input.dtype)
 
 
 _batch_invariant_MODE = False
