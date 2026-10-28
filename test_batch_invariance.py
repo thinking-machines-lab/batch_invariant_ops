@@ -22,22 +22,36 @@ def test_batch_invariance(dtype=torch.float32):
     diff = (out1 - out2).abs().max()
     return diff.item() == 0, diff
 
-def run_iters(iters=10):
+def test_mean_batch_invariance(dtype=torch.float32):
+    B, S, D = 512, 256, 1024
+    g = torch.Generator(device=device_type).manual_seed(0)
+    a = torch.randn(B, S, D, generator=g).to(dtype)
+
+    # Mean over two dims: batch size 1, then full batch and slice
+    out1 = torch.mean(a[:1], dim=(1, 2))
+    out2 = torch.mean(a, dim=(1, 2))[:1]
+
+    diff = (out1 - out2).abs().max()
+    return diff.item() == 0, diff
+
+def run_iters(test=test_batch_invariance, iters=10):
     for dtype in [ torch.float32 , torch.bfloat16 ]:
         is_deterministic = True
         difflist = []
         for i in range (iters):
-            isd, df = test_batch_invariance(dtype)
+            isd, df = test(dtype)
             is_deterministic = is_deterministic and isd
             difflist.append(df)
-        print( f"Batch Deterministic: {is_deterministic} run-to-run max/min/diff {max(difflist)}/{min(difflist)}/{max(difflist)-min(difflist)} for {dtype} in {iters} iterations")
+        print( f"{test.__name__}: Batch Deterministic: {is_deterministic} run-to-run max/min/diff {max(difflist)}/{min(difflist)}/{max(difflist)-min(difflist)} for {dtype} in {iters} iterations")
 
 
 # Test with standard PyTorch (likely to show differences)
 print("Standard PyTorch:")
 with set_batch_invariant_mode(False):
     run_iters()
+    run_iters(test_mean_batch_invariance)
 # Test with batch-invariant operations
 print("\nBatch-Invariant Mode:")
 with set_batch_invariant_mode(True):
     run_iters()
+    run_iters(test_mean_batch_invariance)
